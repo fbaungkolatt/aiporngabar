@@ -1,0 +1,268 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String   @db.Text
+  iconName    String   @default("Film") @db.VarChar(50)
+  color       String   @default("#1769FF") @db.VarChar(30)
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  videos      Video[]
+
+  @@index([order])
+  @@index([isActive])
+}
+
+model Video {
+  id                String         @id @default(uuid())
+  title             String         @db.VarChar(255)
+  description       String         @db.Text
+  category          String         @db.VarChar(100)
+  categoryId        String
+  categoryRel       Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tags              String         @db.Text // JSON string array
+  videoUrl          String         @db.Text
+  thumbnailUrl      String         @db.Text
+  duration          Int            @default(0)
+  durationFormatted String         @default("00:00") @db.VarChar(20)
+  views             Int            @default(0)
+  likes             Int            @default(0)
+  shares            Int            @default(0)
+  isPremium         Boolean        @default(false)
+  isPublished       Boolean        @default(true)
+  isAgeRestricted   Boolean        @default(false)
+  contentOwner      String         @default("Porn Gabar Media Group") @db.VarChar(200)
+  licenseInfo       String         @default("Verified Media License") @db.VarChar(255)
+  copyrightStatus   String         @default("Copyright Verified") @db.VarChar(100)
+  featured          Boolean        @default(false)
+  publishedAt       DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Relations
+  favorites         Favorite[]
+  watchHistory      WatchHistory[]
+  comments          Comment[]
+  reports           ContentReport[]
+  pageViews         PageViewRecord[]
+
+  @@index([categoryId])
+  @@index([isPublished])
+  @@index([featured])
+  @@index([views])
+  @@index([likes])
+  @@index([publishedAt])
+}
+
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique @db.VarChar(255)
+  passwordHash     String         @db.VarChar(255)
+  name             String         @db.VarChar(100)
+  avatarUrl        String?        @db.Text
+  bio              String?        @db.Text
+  role             String         @default("user") @db.VarChar(20)
+  isSuspended      Boolean        @default(false)
+  suspensionReason String?        @db.Text
+  createdAt        DateTime       @default(now())
+  lastLoginAt      DateTime       @default(now())
+  
+  favorites        Favorite[]
+  watchHistory     WatchHistory[]
+  comments         Comment[]
+  reports          ContentReport[]
+}
+
+model AdminUser {
+  id             String    @id @default(uuid())
+  email          String    @unique @db.VarChar(255)
+  passwordHash   String    @db.VarChar(255)
+  name           String    @db.VarChar(100)
+  role           String    @default("admin") @db.VarChar(20) // superadmin, admin, moderator
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  lastLoginAt    DateTime  @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+model WatchHistory {
+  id              String   @id @default(uuid())
+  userId          String
+  videoId         String
+  progressSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  completionRate  Float    @default(0)
+  lastWatchedAt   DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+  @@index([lastWatchedAt])
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  videoId     String
+  userId      String
+  userName    String   @db.VarChar(100)
+  userAvatar  String?  @db.Text
+  content     String   @db.Text
+  likes       Int      @default(0)
+  isModerated Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video       Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@index([createdAt])
+}
+
+model ContentReport {
+  id             String   @id @default(uuid())
+  videoId        String
+  reporterUserId String?
+  reporterEmail  String   @db.VarChar(255)
+  reason         String   @db.VarChar(50)
+  notes          String   @db.Text
+  status         String   @default("pending") @db.VarChar(20) // pending, resolved, dismissed
+  actionTaken    String?  @db.VarChar(100)
+  createdAt      DateTime @default(now())
+
+  user           User?    @relation(fields: [reporterUserId], references: [id], onDelete: SetNull)
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@index([status])
+}
+
+model Advertisement {
+  id             String    @id @default(uuid())
+  name           String    @db.VarChar(150)
+  adType         String    @default("banner") @db.VarChar(30)
+  title          String?   @db.VarChar(255)
+  tagline        String?   @db.Text
+  bannerImage    String    @db.Text
+  targetUrl      String    @db.Text
+  placement      String    @db.VarChar(50) // top_banner, player_preroll, sidebar, home_feed, footer
+  priority       Int       @default(5)
+  impressions    Int       @default(0)
+  clicks         Int       @default(0)
+  isActive       Boolean   @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+  mobileEnabled  Boolean   @default(true)
+  desktopEnabled Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([placement])
+  @@index([isActive])
+}
+
+model VisitorSession {
+  id             String   @id @default(uuid())
+  sessionId      String   @unique @db.VarChar(100)
+  userId         String?
+  ipHash         String   @db.VarChar(64)
+  device         String   @default("desktop") @db.VarChar(50)
+  browser        String   @default("Chrome") @db.VarChar(50)
+  os             String   @default("Windows") @db.VarChar(50)
+  country        String   @default("Unknown") @db.VarChar(100)
+  city           String   @default("Unknown") @db.VarChar(100)
+  currentPage    String   @default("/") @db.VarChar(255)
+  referrer       String   @default("Direct") @db.VarChar(255)
+  trafficSource  String   @default("direct") @db.VarChar(50)
+  pageViewsCount Int      @default(1)
+  startedAt      DateTime @default(now())
+  lastActiveAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([lastActiveAt])
+}
+
+model PageViewRecord {
+  id            String   @id @default(uuid())
+  sessionId     String   @db.VarChar(100)
+  userId        String?
+  ipHash        String   @db.VarChar(64)
+  path          String   @db.VarChar(255)
+  videoId       String?
+  device        String   @default("desktop") @db.VarChar(50)
+  browser       String   @default("Chrome") @db.VarChar(50)
+  os            String   @default("Windows") @db.VarChar(50)
+  country       String   @default("Unknown") @db.VarChar(100)
+  city          String   @default("Unknown") @db.VarChar(100)
+  referrer      String   @default("Direct") @db.VarChar(255)
+  trafficSource String   @default("direct") @db.VarChar(50)
+  utmSource     String?  @db.VarChar(100)
+  utmMedium     String?  @db.VarChar(100)
+  utmCampaign   String?  @db.VarChar(100)
+  utmTerm       String?  @db.VarChar(100)
+  utmContent    String?  @db.VarChar(100)
+  timestamp     DateTime @default(now())
+
+  video         Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
+
+  @@index([path])
+  @@index([timestamp])
+  @@index([videoId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  adminEmail String   @db.VarChar(255)
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(50)
+  entityId   String?  @db.VarChar(100)
+  details    String   @db.Text
+  ipHash     String   @db.VarChar(64)
+  timestamp  DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([adminId])
+}
+
+model PlatformSettings {
+  id                  String   @id @default("global-settings")
+  siteName            String   @default("Porn Gabar") @db.VarChar(100)
+  tagline             String   @default("Premium Video Experience") @db.VarChar(255)
+  contactEmail        String   @default("support@bluewave.video") @db.VarChar(255)
+  enableAgeGate       Boolean  @default(false)
+  allowPublicComments Boolean  @default(true)
+  defaultVideoQuality String   @default("1080p") @db.VarChar(20)
+  maxUploadSizeMb     Int      @default(500)
+  dmcaPolicyText      String   @db.Text
+  termsOfService      String   @db.Text
+  privacyPolicy       String   @db.Text
+  updatedAt           DateTime @updatedAt
+}

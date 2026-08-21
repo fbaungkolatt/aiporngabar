@@ -1,0 +1,6 @@
+{
+  "name": "Porn Gabar",
+  "description": "A premium, production-ready video streaming platform with responsive player, dynamic category browsing, favorites, watch history, real-time traffic & video analytics, ads rotation manager, and a secure administration control center.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
